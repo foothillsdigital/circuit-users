@@ -1,11 +1,16 @@
 locals {
   groups = toset(flatten([for u in var.users : coalesce(u.groups, [])]))
 
-  # Keys are keyed by user and a hash of the key, so reordering a list
-  # changes nothing on the host.
+  # Keys are keyed by user and a hash of the key's type and data, so reordering
+  # a list changes nothing on the host. That's also how Conn3x matches a key in
+  # authorized_keys, so the same key listed twice (with another comment, say)
+  # is one step: two would each remove it when either is dropped.
   keys = merge([
     for name, u in var.users : {
-      for k in u.keys : "${name}:${substr(sha256(trimspace(k)), 0, 12)}" => { user = name, key = trimspace(k) }
+      for id, ks in {
+        # A line that doesn't parse keeps its own hash, and authorized_key's check reports it.
+        for k in u.keys : substr(sha256(try(join(" ", regex("((?:ssh|ecdsa|sk)-[^ \t]+)[ \t]+([A-Za-z0-9+/]+=*)", trimspace(k))), trimspace(k))), 0, 12) => trimspace(k)...
+      } : "${name}:${id}" => { user = name, key = ks[0] }
     }
   ]...)
 

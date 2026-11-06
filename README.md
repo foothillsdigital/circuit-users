@@ -68,7 +68,7 @@ On every host in `hosts`, in this order:
 
 1. Creates every group that a user lists in `groups`. Groups that already exist, such as `wheel` or `sudo`, are left as they are.
 2. Creates each user, or brings an existing one in line with the attributes you set.
-3. Adds each key in `keys` to the user's `~/.ssh/authorized_keys`. Other keys in the file stay.
+3. Adds each key in `keys` to the user's `~/.ssh/authorized_keys`. Other keys in the file stay. A key is matched by its type and data, so the same key listed twice with different comments or options is added once, and dropping one copy leaves it.
 4. For each user with `sudo = true`, installs sudo and writes `/etc/sudoers.d/NAME`, mode `0440`, with the line `NAME ALL=(ALL) NOPASSWD: ALL`.
 
 Removing things from the map:

@@ -85,6 +85,23 @@ jobs:
           login alice 'id -nG' | grep -qw developers
           if login bob true; then echo "bob has no key and logged in" >&2; exit 1; fi
           if podman exec circuit-users su -s /bin/sh bob -c 'sudo -n true'; then echo "bob has no sudo and used it" >&2; exit 1; fi
+      # The same key under two comments is one step: dropping either copy has
+      # to leave the key, where two steps would each remove it from the file.
+      - name: List alice's key twice, drop one copy, and she can still log in
+        working-directory: examples/local
+        run: |
+          cp main.tf main.tf.orig
+          key=$(cut -d' ' -f1,2 id_ed25519.pub)
+          sed -i "s|\[file(\"./id_ed25519.pub\")\]|[\"$key laptop\", \"$key desktop\"]|" main.tf
+          grep -q desktop main.tf
+          conn3x apply -auto-approve
+          sed -i "s|, \"$key desktop\"||" main.tf
+          if grep -q desktop main.tf; then echo "the second copy is still in main.tf" >&2; exit 1; fi
+          conn3x plan -detailed-exitcode
+          ssh -i id_ed25519 -p 2222 -o UserKnownHostsFile=known_hosts -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=10 alice@127.0.0.1 true
+          mv main.tf.orig main.tf
+          conn3x apply -auto-approve
+          conn3x plan -detailed-exitcode
       # A fresh host gets the last release of this circuit, then this
       # checkout is applied over it, the way someone moves the ?ref= pin.
       - name: Upgrade from circuit-users v0.1.2 on a fresh host, then plan again with no changes
